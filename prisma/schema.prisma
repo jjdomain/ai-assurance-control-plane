@@ -1,0 +1,936 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum ReviewStatus {
+  OPEN
+  ASSIGNED
+  IN_REVIEW
+  ESCALATED
+  CLOSED
+}
+
+enum ReviewDisposition {
+  APPROVED
+  REJECTED
+  WAIVED
+  INCIDENT_CONFIRMED
+  FALSE_POSITIVE
+  REMEDIATION_REQUIRED
+  NEEDS_MORE_EVIDENCE
+}
+
+enum FindingStatus {
+  OPEN
+  IN_REVIEW
+  ACCEPTED_RISK
+  ESCALATED
+  RESOLVED
+  CLOSED
+}
+
+enum MaterialityLevel {
+  INFORMATIONAL
+  NOTABLE
+  MATERIAL
+  URGENT
+}
+
+enum WorkflowState {
+  NEW
+  TRIAGE
+  NEEDS_EVIDENCE
+  NEEDS_REVIEW
+  NEEDS_APPROVAL
+  ACCEPTED_RISK_ACTIVE
+  INCIDENT_OPEN
+  RECERTIFICATION_OPEN
+  READY_TO_CLOSE
+  CLOSED
+}
+
+enum EvidenceFreshnessState {
+  FRESH
+  WARNING
+  STALE
+  MISSING
+  HELD
+  SUPERSEDED
+}
+
+enum ReviewCaseStatus {
+  OPEN
+  PENDING_EVIDENCE
+  PENDING_REVIEWER
+  PENDING_APPROVER
+  DECIDED
+  EXPIRED
+  CLOSED
+}
+
+enum ReviewDecisionType {
+  APPROVE
+  REJECT
+  REQUEST_MORE_EVIDENCE
+  ACCEPT_RISK
+  ESCALATE_TO_INCIDENT
+  REQUIRE_RECERTIFICATION
+  DEFER_WITH_EXPIRY
+}
+
+enum SlaState {
+  ON_TRACK
+  AT_RISK
+  BREACHED
+}
+
+enum ControlHealth {
+  HEALTHY
+  WATCH
+  AT_RISK
+  FAILING
+  UNKNOWN
+}
+
+enum MappingStrength {
+  PRIMARY
+  SECONDARY
+  SUPPORTING
+}
+
+enum MappingSource {
+  RULE
+  MANUAL
+  IMPORT
+  FIXTURE
+}
+
+enum ReviewOverrideState {
+  NONE
+  OVERRIDDEN
+  EXCEPTION_ACTIVE
+}
+
+enum RedactionState {
+  NOT_REVIEWED
+  NOT_NEEDED
+  REDACTED
+  RAW_RESTRICTED
+}
+
+enum SensitivityClass {
+  LOW
+  INTERNAL
+  CONFIDENTIAL
+  RESTRICTED
+  REGULATED
+}
+
+enum CollectionMethod {
+  AUTO_CAPTURED
+  DERIVED_SNAPSHOT
+  MANUAL_UPLOAD
+  MANUAL_NOTE
+  IMPORTED
+}
+
+enum RetentionState {
+  ACTIVE
+  EXPIRES_SOON
+  ELIGIBLE_FOR_DELETION
+  HELD
+  DESTROYED
+  SUPERSEDED
+}
+
+enum RetentionReasonCode {
+  POLICY_REQUIRED
+  CONTROL_REQUIRED
+  INCIDENT_RELATED
+  AUDIT_PACKET_INCLUDED
+  REVIEWER_REQUESTED
+  LEGAL_HOLD
+  MANUAL_OVERRIDE
+}
+
+enum AuditPacketStatus {
+  DRAFT
+  ASSEMBLING
+  BLOCKED
+  READY_FOR_INTERNAL_REVIEW
+  APPROVED_FOR_EXPORT
+  EXPORTED
+  SUPERSEDED
+}
+
+enum PacketScopeType {
+  FINDING_SET
+  INCIDENT
+  POLICY_PACK
+  CONTROL_SET
+  REVIEW_WINDOW
+  CUSTOM
+}
+
+enum ApprovalStatus {
+  OPEN
+  APPROVED
+  REJECTED
+  EXPIRED
+  CANCELED
+}
+
+enum ApprovalType {
+  REVIEW_DECISION
+  ACCEPTED_RISK
+  AUDIT_PACKET
+  RETENTION_OVERRIDE
+  EVIDENCE_RELEASE
+}
+
+enum RecertificationStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  WAIVED
+  CANCELED
+  OVERDUE
+}
+
+enum RecertificationTriggerType {
+  MODEL_CHANGE
+  PROMPT_CHANGE
+  TOOL_PERMISSION_CHANGE
+  EXTERNAL_ACTION_POLICY_CHANGE
+  RETENTION_POLICY_CHANGE
+  MEMORY_POLICY_CHANGE
+  CONNECTOR_PERMISSION_CHANGE
+  RULE_PACK_CHANGE
+  CONTROL_MAPPING_CHANGE
+}
+
+enum RiskCategory {
+  AUTHORIZATION
+  DATA_ACCESS
+  DATA_RETENTION
+  EXTERNAL_ACTIONS
+  PROMPT_INJECTION
+  MEMORY_GOVERNANCE
+  TOOL_USE
+  MODEL_BEHAVIOR
+  HUMAN_APPROVAL
+  AUDITABILITY
+  OTHER
+}
+
+model Organization {
+  id                   String                @id @default(cuid())
+  slug                 String                @unique
+  name                 String
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  workspaces           Workspace[]
+  users                User[]
+  memberships          Membership[]
+  connectors           Connector[]
+  connectorRuns        ConnectorRun[]
+  systems              System[]
+  runs                 Run[]
+  events               Event[]
+  findings             Finding[]
+  evidence             EvidenceRecord[]
+  reviewCases          ReviewCase[]
+  incidents            Incident[]
+  policyPacks          PolicyPack[]
+  rules                RuleDefinition[]
+  retentionPolicies    RetentionPolicy[]
+  retentionDecisions   RetentionDecision[]
+  legalHolds           LegalHold[]
+  auditPackets         AuditPacket[]
+  exportJobs           ExportJob[]
+  approvalRequests     ApprovalRequest[]
+  recertificationTasks RecertificationTask[]
+}
+
+model Workspace {
+  id                   String                @id @default(cuid())
+  organizationId       String
+  slug                 String
+  name                 String
+  environment          String
+  metadataJson         Json?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  systems              System[]
+  connectors           Connector[]
+  connectorRuns        ConnectorRun[]
+  runs                 Run[]
+  findings             Finding[]
+  evidence             EvidenceRecord[]
+  reviewCases          ReviewCase[]
+  incidents            Incident[]
+  retentionDecisions   RetentionDecision[]
+  legalHolds           LegalHold[]
+  auditPackets         AuditPacket[]
+  exportJobs           ExportJob[]
+  memberships          Membership[]
+  approvalRequests     ApprovalRequest[]
+  recertificationTasks RecertificationTask[]
+
+  @@unique([organizationId, slug])
+}
+
+model User {
+  id                         String                @id @default(cuid())
+  organizationId             String
+  email                      String
+  displayName                String
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
+  organization               Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships                Membership[]
+  assignedReviews            ReviewCase[]          @relation("AssignedReviewer")
+  ownedFindings              Finding[]             @relation("FindingOwner")
+  approvedEvidence           EvidenceRecord[]      @relation("EvidenceApprovedBy")
+  ownedReviewCases           ReviewCase[]          @relation("ReviewCaseOwner")
+  reviewerReviewCases        ReviewCase[]          @relation("ReviewCaseReviewer")
+  approverReviewCases        ReviewCase[]          @relation("ReviewCaseApprover")
+  incidentOwnership          Incident[]            @relation("IncidentOwner")
+  auditPacketOwnership       AuditPacket[]         @relation("AuditPacketOwner")
+  auditPacketReviews         AuditPacket[]         @relation("AuditPacketReviewer")
+  approvedRetentionDecisions RetentionDecision[]   @relation("RetentionApprovedBy")
+  requestedApprovals         ApprovalRequest[]     @relation("ApprovalRequestedBy")
+  receivedApprovals          ApprovalRequest[]     @relation("ApprovalRequestedFrom")
+  recertificationOwnership   RecertificationTask[] @relation("RecertificationOwner")
+}
+
+model Membership {
+  id             String       @id @default(cuid())
+  organizationId String
+  workspaceId    String
+  userId         String
+  roleCode       String
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId, roleCode])
+}
+
+model System {
+  id              String       @id @default(cuid())
+  organizationId  String
+  workspaceId     String
+  slug            String
+  name            String
+  systemType      String
+  criticalityTier Int          @default(3)
+  metadataJson    Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace       Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  connectors      Connector[]
+  runs            Run[]
+
+  @@unique([workspaceId, slug])
+}
+
+model Connector {
+  id             String         @id @default(cuid())
+  organizationId String
+  workspaceId    String
+  systemId       String?
+  connectorType  String
+  name           String
+  status         String
+  configJson     Json?
+  metadataJson   Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  system         System?        @relation(fields: [systemId], references: [id], onDelete: SetNull)
+  connectorRuns  ConnectorRun[]
+  runs           Run[]
+}
+
+model ConnectorRun {
+  id             String       @id @default(cuid())
+  organizationId String
+  workspaceId    String
+  connectorId    String
+  sourceRunKey   String
+  ingestStatus   String
+  ingestedAt     DateTime     @default(now())
+  rawPayloadJson Json
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  connector      Connector    @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  runs           Run[]
+
+  @@unique([connectorId, sourceRunKey])
+}
+
+model Run {
+  id               String        @id @default(cuid())
+  organizationId   String
+  workspaceId      String
+  systemId         String?
+  connectorId      String?
+  connectorRunId   String?
+  sourcePlatform   String
+  externalRunId    String
+  sessionId        String?
+  environment      String
+  status           String
+  actorType        String
+  actorId          String?
+  modelRef         String?
+  promptVersionRef String?
+  startedAt        DateTime
+  endedAt          DateTime?
+  metricsJson      Json?
+  metadataJson     Json?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace        Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  system           System?       @relation(fields: [systemId], references: [id], onDelete: SetNull)
+  connector        Connector?    @relation(fields: [connectorId], references: [id], onDelete: SetNull)
+  connectorRun     ConnectorRun? @relation(fields: [connectorRunId], references: [id], onDelete: SetNull)
+  events           Event[]
+  findings         Finding[]
+  evidence         EvidenceRecord[]
+
+  @@unique([workspaceId, externalRunId])
+}
+
+model Event {
+  id                    String       @id @default(cuid())
+  organizationId        String
+  runId                 String
+  externalEventId       String
+  eventType             String
+  eventTime             DateTime
+  actorType             String?
+  targetRef             String?
+  status                String?
+  attributesJson        Json?
+  normalizedPayloadJson Json?
+  createdAt             DateTime     @default(now())
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  run                   Run          @relation(fields: [runId], references: [id], onDelete: Cascade)
+  primaryFindings       Finding[]    @relation("PrimaryFindingEvent")
+
+  @@unique([runId, externalEventId])
+}
+
+model RuleDefinition {
+  id             String             @id @default(cuid())
+  organizationId String
+  slug           String
+  name           String
+  version        String
+  isActive       Boolean            @default(true)
+  sourceType     String?
+  rawJson        Json
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  findingMatches FindingRuleMatch[]
+
+  @@unique([organizationId, slug, version])
+}
+
+model PolicyPack {
+  id                String            @id @default(cuid())
+  organizationId    String
+  slug              String
+  name              String
+  version           String
+  sourceType        String
+  isActive          Boolean           @default(true)
+  rawJson           Json
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  controls          PolicyControl[]
+  retentionPolicies RetentionPolicy[]
+
+  @@unique([organizationId, slug, version])
+}
+
+model PolicyControl {
+  id                           String                @id @default(cuid())
+  policyPackId                 String
+  code                         String
+  categoryCode                 String?
+  title                        String
+  impactLevel                  String?
+  description                  String?
+  metadataJson                 Json?
+  controlHealth                ControlHealth         @default(UNKNOWN)
+  reviewCadence                String?
+  evidenceFreshnessRequirement String?
+  requiresHumanApproval        Boolean               @default(false)
+  requiredEvidenceTypesJson    Json?
+  lastAttestedAt               DateTime?
+  nextReviewDueAt              DateTime?
+  riskCategory                 RiskCategory?
+  policyPack                   PolicyPack            @relation(fields: [policyPackId], references: [id], onDelete: Cascade)
+  controlMappings              ControlMapping[]
+  statusSnapshots              ControlStatusSnapshot[]
+  recertificationTasks         RecertificationTask[]
+
+  @@unique([policyPackId, code])
+}
+
+model Finding {
+  id                       String                 @id @default(cuid())
+  organizationId           String
+  workspaceId              String
+  runId                    String
+  primaryEventId           String?
+  title                    String
+  summary                  String
+  eventType                String
+  severity                 String
+  status                   String
+  materialityScore         Int
+  evidenceScore            Int
+  confidenceScore          Int
+  recommendedActionsJson   Json?
+  workflowStatus           FindingStatus          @default(OPEN)
+  materialityLevel         MaterialityLevel       @default(MATERIAL)
+  workflowState            WorkflowState          @default(NEW)
+  ownerUserId              String?
+  reviewRequired           Boolean                @default(false)
+  reviewDueAt              DateTime?
+  evidenceFreshnessState   EvidenceFreshnessState @default(FRESH)
+  controlHealthImpact      ControlHealth          @default(UNKNOWN)
+  incidentSuggested        Boolean                @default(false)
+  incidentCreated          Boolean                @default(false)
+  acceptedRiskUntil        DateTime?
+  acceptedRiskRationale    String?
+  recertificationRequired  Boolean                @default(false)
+  recertificationReason    String?
+  sourceRiskClass          RiskCategory?
+  lastEvaluatedAt          DateTime?
+  primaryReviewCaseId      String?
+  currentIncidentId        String?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  organization             Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace                Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  run                      Run                    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  primaryEvent             Event?                 @relation("PrimaryFindingEvent", fields: [primaryEventId], references: [id], onDelete: SetNull)
+  ownerUser                User?                  @relation("FindingOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  primaryReviewCase        ReviewCase?            @relation("FindingPrimaryReviewCase", fields: [primaryReviewCaseId], references: [id], onDelete: SetNull)
+  currentIncident          Incident?              @relation("FindingCurrentIncident", fields: [currentIncidentId], references: [id], onDelete: SetNull)
+  ruleMatches              FindingRuleMatch[]
+  controlMappings          ControlMapping[]
+  evidence                 EvidenceRecord[]
+  reviewCases              ReviewCase[]
+  incidents                Incident[]             @relation("IncidentFinding")
+  retentionDecisions       RetentionDecision[]
+  approvalRequests         ApprovalRequest[]
+  recertificationTasks     RecertificationTask[]
+
+  @@index([workspaceId, workflowStatus, materialityLevel])
+  @@index([workspaceId, ownerUserId, workflowStatus])
+  @@index([workspaceId, workflowState])
+  @@index([workspaceId, reviewRequired, reviewDueAt])
+  @@index([workspaceId, evidenceFreshnessState])
+}
+
+model FindingRuleMatch {
+  id                 String         @id @default(cuid())
+  findingId          String
+  ruleDefinitionId   String
+  matchedAt          DateTime       @default(now())
+  explainabilityJson Json?
+  finding            Finding        @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  ruleDefinition     RuleDefinition @relation(fields: [ruleDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([findingId, ruleDefinitionId])
+}
+
+model ControlMapping {
+  id                  String              @id @default(cuid())
+  findingId           String
+  policyControlId     String
+  mappingSource       MappingSource       @default(RULE)
+  mappingStrength     MappingStrength     @default(PRIMARY)
+  reviewOverrideState ReviewOverrideState @default(NONE)
+  overrideReason      String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  finding             Finding             @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  policyControl       PolicyControl       @relation(fields: [policyControlId], references: [id], onDelete: Cascade)
+
+  @@unique([findingId, policyControlId])
+}
+
+model EvidenceRecord {
+  id                     String                 @id @default(cuid())
+  organizationId         String
+  workspaceId            String
+  runId                  String?
+  findingId              String?
+  evidenceType           String
+  status                 String
+  storageRef             String
+  hash                   String
+  title                  String?
+  summary                String?
+  contentPreview         String?
+  chainOfCustodyJson     Json?
+  snapshotJson           Json?
+  rawPayloadJson         Json?
+  redactedPayloadJson    Json?
+  provenanceJson         Json?
+  freshnessState         EvidenceFreshnessState @default(FRESH)
+  capturedAt             DateTime?
+  expiresAt              DateTime?
+  staleAfterAt           DateTime?
+  approvedForAudit       Boolean                @default(false)
+  approvedByUserId       String?
+  approvedAt             DateTime?
+  reviewComments         String?
+  redactionState         RedactionState         @default(NOT_REVIEWED)
+  sensitivityClass       SensitivityClass       @default(INTERNAL)
+  collectionMethod       CollectionMethod       @default(AUTO_CAPTURED)
+  requiredByControlCount Int                    @default(0)
+  lastExportedAt         DateTime?
+  isSnapshotLocked       Boolean                @default(false)
+  sourceTimeWindowStart  DateTime?
+  sourceTimeWindowEnd    DateTime?
+  retentionState         RetentionState         @default(ACTIVE)
+  legalHoldActive        Boolean                @default(false)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  organization           Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace              Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  run                    Run?                   @relation(fields: [runId], references: [id], onDelete: SetNull)
+  finding                Finding?               @relation(fields: [findingId], references: [id], onDelete: SetNull)
+  approvedByUser         User?                  @relation("EvidenceApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  retentionDecisions     RetentionDecision[]
+  legalHolds             LegalHold[]
+  attachments            Attachment[]
+  approvalRequests       ApprovalRequest[]
+  recertificationTasks   RecertificationTask[]
+}
+
+model ReviewCase {
+  id                            String             @id @default(cuid())
+  organizationId                String
+  workspaceId                   String
+  findingId                     String?
+  assignedReviewerId            String?
+  reviewType                    String
+  status                        ReviewStatus       @default(OPEN)
+  assignedTeam                  String?
+  retentionPolicyId             String?
+  workflowStatus                ReviewCaseStatus   @default(OPEN)
+  decisionType                  ReviewDecisionType?
+  decisionRationale             String?
+  title                         String?
+  summary                       String?
+  ownerUserId                   String?
+  reviewerUserId                String?
+  approverUserId                String?
+  dueAt                         DateTime?
+  slaState                      SlaState           @default(ON_TRACK)
+  acceptedRiskUntil             DateTime?
+  requiresSecondApprover        Boolean            @default(false)
+  requiredEvidenceChecklistJson Json?
+  decisionSummary               String?
+  closedAt                      DateTime?
+  createdAt                     DateTime           @default(now())
+  updatedAt                     DateTime           @updatedAt
+  organization                  Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace                     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  finding                       Finding?           @relation(fields: [findingId], references: [id], onDelete: SetNull)
+  assignedReviewer              User?              @relation("AssignedReviewer", fields: [assignedReviewerId], references: [id], onDelete: SetNull)
+  retentionPolicy               RetentionPolicy?   @relation(fields: [retentionPolicyId], references: [id], onDelete: SetNull)
+  ownerUser                     User?              @relation("ReviewCaseOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  reviewerUser                  User?              @relation("ReviewCaseReviewer", fields: [reviewerUserId], references: [id], onDelete: SetNull)
+  approverUser                  User?              @relation("ReviewCaseApprover", fields: [approverUserId], references: [id], onDelete: SetNull)
+  decisions                     ReviewDecision[]
+  incidents                     Incident[]
+  timeline                      TimelineEvent[]
+  approvalRequests              ApprovalRequest[]
+  primaryForFindings            Finding[]          @relation("FindingPrimaryReviewCase")
+
+  @@index([workspaceId, workflowStatus])
+  @@index([workspaceId, dueAt])
+  @@index([workspaceId, slaState])
+}
+
+model ReviewDecision {
+  id             String             @id @default(cuid())
+  reviewCaseId   String
+  statusBefore   ReviewStatus
+  statusAfter    ReviewStatus
+  disposition    ReviewDisposition
+  rationale      String
+  decisionType   ReviewDecisionType?
+  decidedByUserId String?
+  expiresAt      DateTime?
+  createdAt      DateTime           @default(now())
+  reviewCase     ReviewCase         @relation(fields: [reviewCaseId], references: [id], onDelete: Cascade)
+}
+
+model Incident {
+  id                      String       @id @default(cuid())
+  organizationId          String
+  workspaceId             String
+  findingId               String?
+  reviewCaseId            String?
+  title                   String
+  summary                 String
+  severity                String
+  status                  String
+  sourceFindingCount      Int          @default(0)
+  controlImpactSummary    String?
+  customerImpactClass     String?
+  dataImpactClass         String?
+  remediationSlaAt        DateTime?
+  needsPostIncidentPacket Boolean      @default(false)
+  postIncidentPacketId    String?
+  ownerUserId             String?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  closedAt                DateTime?
+  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace               Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  finding                 Finding?     @relation("IncidentFinding", fields: [findingId], references: [id], onDelete: SetNull)
+  reviewCase              ReviewCase?  @relation(fields: [reviewCaseId], references: [id], onDelete: SetNull)
+  ownerUser               User?        @relation("IncidentOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  postIncidentPacket      AuditPacket? @relation("IncidentPostPacket", fields: [postIncidentPacketId], references: [id], onDelete: SetNull)
+  remediationTasks        RemediationTask[]
+  auditPackets            AuditPacket[]
+  timeline                TimelineEvent[]
+  currentForFindings      Finding[]    @relation("FindingCurrentIncident")
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, remediationSlaAt])
+}
+
+model RemediationTask {
+  id         String    @id @default(cuid())
+  incidentId String
+  title      String
+  status     String
+  ownerTeam  String?
+  dueAt      DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  incident   Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+}
+
+model RetentionPolicy {
+  id                 String              @id @default(cuid())
+  organizationId     String
+  policyPackId       String?
+  name               String
+  scope              String
+  retentionClass     String
+  retentionDays      Int?
+  legalHoldAllowed   Boolean             @default(false)
+  deleteMode         String
+  triggerSummary     String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  policyPack         PolicyPack?         @relation(fields: [policyPackId], references: [id], onDelete: SetNull)
+  reviewCases        ReviewCase[]
+  retentionDecisions RetentionDecision[]
+
+  @@unique([organizationId, name])
+}
+
+model RetentionDecision {
+  id                     String              @id @default(cuid())
+  organizationId         String
+  workspaceId            String
+  findingId              String?
+  evidenceRecordId       String?
+  retentionPolicyId      String
+  decisionStatus         String
+  retentionLabel         String
+  rationale              String?
+  state                  RetentionState      @default(ACTIVE)
+  reasonCode             RetentionReasonCode @default(POLICY_REQUIRED)
+  policyBasis            String?
+  approvedByUserId       String?
+  decisionAt             DateTime            @default(now())
+  destructionScheduledAt DateTime?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  organization           Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace              Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  finding                Finding?            @relation(fields: [findingId], references: [id], onDelete: SetNull)
+  evidenceRecord         EvidenceRecord?     @relation(fields: [evidenceRecordId], references: [id], onDelete: SetNull)
+  retentionPolicy        RetentionPolicy     @relation(fields: [retentionPolicyId], references: [id], onDelete: Cascade)
+  approvedByUser         User?               @relation("RetentionApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+}
+
+model LegalHold {
+  id               String         @id @default(cuid())
+  organizationId   String
+  workspaceId      String
+  evidenceRecordId String
+  holdReason       String
+  status           String
+  issuedAt         DateTime       @default(now())
+  releasedAt       DateTime?
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace        Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  evidenceRecord   EvidenceRecord @relation(fields: [evidenceRecordId], references: [id], onDelete: Cascade)
+}
+
+model AuditPacket {
+  id                   String            @id @default(cuid())
+  organizationId       String
+  workspaceId          String
+  incidentId           String?
+  packetKey            String
+  status               AuditPacketStatus @default(DRAFT)
+  manifestJson         Json
+  title                String?
+  description          String?
+  scopeType            PacketScopeType   @default(INCIDENT)
+  ownerUserId          String?
+  reviewerUserId       String?
+  completenessPercent  Int               @default(0)
+  missingEvidenceCount Int               @default(0)
+  missingApprovalCount Int               @default(0)
+  exportCount          Int               @default(0)
+  latestExportAt       DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  organization         Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace            Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  incident             Incident?         @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  ownerUser            User?             @relation("AuditPacketOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  reviewerUser         User?             @relation("AuditPacketReviewer", fields: [reviewerUserId], references: [id], onDelete: SetNull)
+  exportJobs           ExportJob[]
+  approvalRequests     ApprovalRequest[]
+  postIncidentFor      Incident[]        @relation("IncidentPostPacket")
+}
+
+model ExportJob {
+  id             String       @id @default(cuid())
+  organizationId String
+  workspaceId    String
+  auditPacketId  String?
+  status         String
+  exportType     String
+  outputRef      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  auditPacket    AuditPacket? @relation(fields: [auditPacketId], references: [id], onDelete: SetNull)
+}
+
+model ApprovalRequest {
+  id                  String          @id @default(cuid())
+  organizationId      String
+  workspaceId         String
+  reviewCaseId        String?
+  auditPacketId       String?
+  evidenceRecordId    String?
+  findingId           String?
+  subjectType         String
+  subjectId           String
+  approvalType        ApprovalType
+  status              ApprovalStatus  @default(OPEN)
+  requestedByUserId   String?
+  requestedFromUserId String?
+  dueAt               DateTime?
+  decisionAt          DateTime?
+  decisionNote        String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  organization        Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace           Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  reviewCase          ReviewCase?     @relation(fields: [reviewCaseId], references: [id], onDelete: SetNull)
+  auditPacket         AuditPacket?    @relation(fields: [auditPacketId], references: [id], onDelete: SetNull)
+  evidenceRecord      EvidenceRecord? @relation(fields: [evidenceRecordId], references: [id], onDelete: SetNull)
+  finding             Finding?        @relation(fields: [findingId], references: [id], onDelete: SetNull)
+  requestedByUser     User?           @relation("ApprovalRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  requestedFromUser   User?           @relation("ApprovalRequestedFrom", fields: [requestedFromUserId], references: [id], onDelete: SetNull)
+}
+
+model RecertificationTask {
+  id               String                    @id @default(cuid())
+  organizationId   String
+  workspaceId      String
+  findingId        String?
+  policyControlId  String?
+  evidenceRecordId String?
+  status           RecertificationStatus     @default(OPEN)
+  triggerType      RecertificationTriggerType
+  triggerRefType   String?
+  triggerRefId     String?
+  title            String
+  reason           String?
+  dueAt            DateTime?
+  ownerUserId      String?
+  completedAt      DateTime?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  organization     Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace        Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  finding          Finding?                  @relation(fields: [findingId], references: [id], onDelete: SetNull)
+  policyControl    PolicyControl?            @relation(fields: [policyControlId], references: [id], onDelete: SetNull)
+  evidenceRecord   EvidenceRecord?           @relation(fields: [evidenceRecordId], references: [id], onDelete: SetNull)
+  ownerUser        User?                     @relation("RecertificationOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, dueAt])
+}
+
+model ControlStatusSnapshot {
+  id              String                @id @default(cuid())
+  policyControlId String
+  capturedAt      DateTime              @default(now())
+  controlHealth   ControlHealth
+  freshnessState  EvidenceFreshnessState?
+  openFindings    Int                   @default(0)
+  notes           String?
+  policyControl   PolicyControl         @relation(fields: [policyControlId], references: [id], onDelete: Cascade)
+}
+
+model TimelineEvent {
+  id           String      @id @default(cuid())
+  reviewCaseId String?
+  incidentId   String?
+  eventType    String
+  body         String
+  metadataJson Json?
+  createdAt    DateTime    @default(now())
+  reviewCase   ReviewCase? @relation(fields: [reviewCaseId], references: [id], onDelete: Cascade)
+  incident     Incident?   @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+}
+
+model Attachment {
+  id               String         @id @default(cuid())
+  evidenceRecordId String
+  fileName         String
+  contentType      String
+  storageRef       String
+  metadataJson     Json?
+  createdAt        DateTime       @default(now())
+  evidenceRecord   EvidenceRecord @relation(fields: [evidenceRecordId], references: [id], onDelete: Cascade)
+}

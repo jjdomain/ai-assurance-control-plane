@@ -1,0 +1,23 @@
+risk_tiers:
+  - key: low
+    label: Low
+    description: Limited-impact internal assistive usage.
+    default_review_path: standard_review
+    incident_threshold: high
+    recertification_interval_days: 180
+    requires_human_approval_for_external_actions: false
+  - key: elevated
+    label: Elevated
+    description: Sensitive data access, tool use, or business-impacting outputs.
+    default_review_path: enhanced_review
+    incident_threshold: medium
+    recertification_interval_days: 90
+    requires_human_approval_for_external_actions: true
+  - key: high
+    label: High
+    description: High-impact decisions, external actions, or regulated workflows.
+    default_review_path: strict_review
+    incident_threshold: medium
+    recertification_interval_days: 60
+    requires_human_approval_for_external_actions: true
+    requires_post_incident_packet: true

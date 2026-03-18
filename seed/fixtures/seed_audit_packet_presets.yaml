@@ -1,0 +1,37 @@
+- key: internal_assurance_review
+  title: Internal Assurance Review Packet
+  purpose: internal_review
+  required_artifacts:
+    - finding_summary
+    - retained_evidence_bundle
+    - reviewer_decisions
+    - control_mappings
+  required_signoffs:
+    - reviewer
+  default_export_format: json_bundle
+- key: post_incident_internal_review
+  title: Post-Incident Internal Review Packet
+  purpose: post_incident
+  required_artifacts:
+    - incident_summary
+    - source_findings
+    - retained_evidence_bundle
+    - reviewer_decisions
+    - remediation_timeline
+    - control_mappings
+  required_signoffs:
+    - reviewer
+    - incident_owner
+  default_export_format: markdown_bundle
+- key: regulator_or_counsel_packet
+  title: Regulator or Counsel Packet
+  purpose: regulator_review
+  required_artifacts:
+    - incident_summary
+    - redacted_evidence_bundle
+    - retention_history
+    - approval_history
+  required_signoffs:
+    - reviewer
+    - legal
+  default_export_format: markdown_bundle

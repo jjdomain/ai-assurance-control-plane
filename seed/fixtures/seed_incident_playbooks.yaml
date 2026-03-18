@@ -1,0 +1,44 @@
+- key: unsafe_external_action_playbook
+  title: Unsafe External Action
+  trigger_conditions:
+    - external_action_attempted
+    - high_materiality
+  initial_actions:
+    - preserve_evidence
+    - assign_incident_owner
+    - verify_if_action_completed
+    - review_missing_approval_control
+  required_timeline_events:
+    - triage_started
+    - containment_decision
+    - remediation_owner_assigned
+    - closure_evidence_attached
+  export_preset: post_incident_internal_review
+- key: privacy_memory_retention_playbook
+  title: Privacy and Retention Escalation
+  trigger_conditions:
+    - sensitive_memory_exposure
+    - retention_basis_missing
+  initial_actions:
+    - preserve_redacted_evidence
+    - assess_hold_need
+    - assign_legal_reviewer
+  required_timeline_events:
+    - retention_triage_started
+    - hold_decision_recorded
+    - remediation_confirmed
+  export_preset: regulator_or_counsel_packet
+- key: approval_checkpoint_failure_playbook
+  title: Approval Checkpoint Failure
+  trigger_conditions:
+    - approval_bypass_detected
+    - high_impact_action
+  initial_actions:
+    - confirm_action_path
+    - assign_governance_owner
+    - collect_approval_evidence
+  required_timeline_events:
+    - checkpoint_failure_logged
+    - compensating_controls_reviewed
+    - closure_rationale_attached
+  export_preset: internal_assurance_review

@@ -1,0 +1,18 @@
+[
+  {
+    "id": "note_accepted_risk_example",
+    "type": "accepted_risk_note",
+    "linked_review_case_key": "reviewer_material_finding_default",
+    "author_role": "AI Governance Lead",
+    "summary": "Risk accepted temporarily pending connector permission redesign.",
+    "body": "Observed behavior did not complete an unsafe action. Temporary acceptance approved with a 30-day remediation window and mandatory recertification after the policy update."
+  },
+  {
+    "id": "note_playbook_triage",
+    "type": "incident_note",
+    "linked_incident_playbook_key": "unsafe_external_action_playbook",
+    "author_role": "Security Reviewer",
+    "summary": "Preserve raw evidence first, then route redacted material into the packet workflow.",
+    "body": "The seeded incident flow assumes raw artifacts remain on hold while reviewer-safe snapshots feed approvals and internal review exports."
+  }
+]

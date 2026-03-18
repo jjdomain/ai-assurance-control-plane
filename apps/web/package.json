@@ -1,0 +1,24 @@
+{
+  "name": "@aiacp/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@aiacp/shared-types": "workspace:*",
+    "@prisma/client": "^6.5.0",
+    "next": "^15.2.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.4",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.1"
+  }
+}

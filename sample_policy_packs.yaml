@@ -1,0 +1,485 @@
+schemaVersion: 1
+generatedAt: '2026-03-14T00:00:00Z'
+packs:
+- id: pack_internal_assurance_baseline_v1
+  name: Internal Assurance Baseline
+  slug: internal-assurance-baseline
+  version: 1.0.0
+  sourceType: SYSTEM
+  isActive: true
+  description: Primary product-native policy pack for portfolio demos. Encodes practical
+    enterprise controls for approvals, evidence, retention, sensitive data handling,
+    and safe agent tool use.
+  categories:
+  - code: HUMAN_OVERSIGHT
+    label: Human Oversight
+  - code: APPROVALS
+    label: Approvals
+  - code: ACCESS_CONTROL
+    label: Access Control
+  - code: PROVENANCE
+    label: Provenance
+  - code: LOGGING
+    label: Logging and Chain of Custody
+  - code: RETENTION
+    label: Retention
+  - code: INCIDENT_RESPONSE
+    label: Incident Response
+  - code: MODEL_CHANGE
+    label: Model / Prompt Change Discipline
+  - code: SAFE_TOOL_USE
+    label: Safe Tool Use
+  - code: DATA_HANDLING
+    label: Sensitive Data Handling
+  retentionPolicies:
+  - id: retain-routine-30
+    name: retain-routine-30
+    scope: RUN
+    retentionClass: R30
+    retentionDays: 30
+    legalHoldAllowed: false
+    deleteMode: SOFT_DELETE
+    triggerSummary: Routine successful run with no open review case.
+  - id: retain-review-90
+    name: retain-review-90
+    scope: CASE
+    retentionClass: R90
+    retentionDays: 90
+    legalHoldAllowed: true
+    deleteMode: SOFT_DELETE
+    triggerSummary: Material event led to review but not incident classification.
+  - id: retain-incident-365
+    name: retain-incident-365
+    scope: EVENT
+    retentionClass: R365
+    retentionDays: 365
+    legalHoldAllowed: true
+    deleteMode: ARCHIVE_ONLY
+    triggerSummary: High-risk run, incident candidate, or confirmed incident.
+  - id: retain-minimal-redacted
+    name: retain-minimal-redacted
+    scope: ARTIFACT
+    retentionClass: MIN
+    retentionDays: 14
+    legalHoldAllowed: true
+    deleteMode: HARD_DELETE
+    triggerSummary: Keep derivative metadata only; raw sensitive content is not required
+      for standard review.
+  - id: retain-legal-hold
+    name: retain-legal-hold
+    scope: CASE
+    retentionClass: HOLD
+    retentionDays: null
+    legalHoldAllowed: true
+    deleteMode: ARCHIVE_ONLY
+    triggerSummary: Suspends deletion until hold release.
+  controls:
+  - controlCode: GOV-APP-001
+    title: High-impact external actions require logged approval state
+    category: APPROVALS
+    impactLevel: HIGH
+    description: Any external communication, deletion, financial, or irreversible
+      side-effect action initiated by an agent must record whether approval was required,
+      whether approval was present, and who supplied it.
+    evidenceRequirements:
+    - approvalRequired flag
+    - approvalPresent flag
+    - reviewer identity if present
+    - action target
+    - timestamp
+    reviewRequirements:
+    - Review when approval is missing or reviewer identity is absent.
+    defaultSuggestedActions:
+    - Open risk review
+    - Escalate to incident if external side effect occurred
+    relatedEventTypes:
+    - APPROVAL_BYPASS
+    - HIGH_IMPACT_ACTION
+  - controlCode: GOV-OVR-002
+    title: Material agent actions must preserve human-oversight evidence
+    category: HUMAN_OVERSIGHT
+    impactLevel: HIGH
+    description: For high-risk or high-impact actions, the system must preserve enough
+      evidence to show whether a human was in the loop, on the loop, or bypassed.
+    evidenceRequirements:
+    - approval span or equivalent
+    - actor identity
+    - decision timestamp
+    - review rationale if override used
+    reviewRequirements:
+    - Create review case when oversight state is absent, ambiguous, or contradicts
+      policy.
+    defaultSuggestedActions:
+    - Require reviewer disposition
+    - Update approval thresholds if pattern repeats
+    relatedEventTypes:
+    - APPROVAL_BYPASS
+    - POLICY_THRESHOLD_EXCEEDED
+    - INCIDENT_CANDIDATE
+  - controlCode: GOV-DATA-002
+    title: Sensitive data in prompts, outputs, and tool payloads must be detected
+      and handled by policy
+    category: DATA_HANDLING
+    impactLevel: HIGH
+    description: Prompt bodies, model outputs, and tool arguments/results must be
+      screened for sensitive data classes and displayed redacted by default when policy
+      requires.
+    evidenceRequirements:
+    - detected class
+    - match confidence
+    - redacted derivative artifact
+    - access log for raw view
+    reviewRequirements:
+    - Privacy/security review when content crosses an external boundary or regulated
+      class threshold.
+    defaultSuggestedActions:
+    - Redact default UI
+    - Assign restricted access
+    - Escalate if external sharing occurred
+    relatedEventTypes:
+    - SENSITIVE_DATA_EXPOSURE
+    - RETENTION_REQUIRED
+  - controlCode: GOV-EVD-003
+    title: High-risk runs must preserve provenance and evidence lineage
+    category: PROVENANCE
+    impactLevel: HIGH
+    description: Runs leading to material decisions or side effects must preserve
+      source references, retrieval lineage, version details, and span ancestry sufficient
+      for later review.
+    evidenceRequirements:
+    - source IDs or artifact refs
+    - retrieval manifest
+    - model version
+    - prompt version
+    - parent/child span lineage
+    reviewRequirements:
+    - Open review when evidence sufficiency falls below configured threshold.
+    defaultSuggestedActions:
+    - Block release into production workflows if recurring
+    - Require remediation for weak evidence chain
+    relatedEventTypes:
+    - PROVENANCE_FAILURE
+    - CHAIN_OF_CUSTODY_GAP
+  - controlCode: GOV-RET-004
+    title: Incident-related artifacts must be retained under incident retention schedule
+    category: RETENTION
+    impactLevel: HIGH
+    description: Artifacts associated with material incidents must be retained according
+      to incident policy and protected from routine deletion while the matter remains
+      open.
+    evidenceRequirements:
+    - retention assignment
+    - expiration or hold state
+    - destruction log when applicable
+    reviewRequirements:
+    - Reviewer must confirm retention disposition when closing incident-related case.
+    defaultSuggestedActions:
+    - Apply R365 or HOLD
+    - Export evidence manifest
+    relatedEventTypes:
+    - INCIDENT_CANDIDATE
+    - SENSITIVE_DATA_EXPOSURE
+    - APPROVAL_BYPASS
+  - controlCode: GOV-LOG-005
+    title: Chain-of-custody and access to privileged evidence must be logged
+    category: LOGGING
+    impactLevel: HIGH
+    description: Raw trace archives and privileged evidence views must record who
+      accessed what, when, and under which reason code.
+    evidenceRequirements:
+    - export history
+    - raw-view audit trail
+    - artifact hashes
+    - access reason code
+    reviewRequirements:
+    - Review when privileged evidence is viewed without linked case or stated reason.
+    defaultSuggestedActions:
+    - Log raw-evidence access
+    - Flag unexplained privileged access
+    relatedEventTypes:
+    - CHAIN_OF_CUSTODY_GAP
+    - RETENTION_REQUIRED
+  - controlCode: GOV-TOOL-001
+    title: Agent tool chaining and side effects must remain within policy thresholds
+    category: SAFE_TOOL_USE
+    impactLevel: MODERATE
+    description: Repeated retries, expanding side-effect tools, or unapproved delegation
+      can indicate autonomy drift and must be reviewable.
+    evidenceRequirements:
+    - tool chain depth
+    - retry count
+    - distinct side-effect tools
+    - delegation graph if present
+    reviewRequirements:
+    - Open case when chain depth or retries exceed configured threshold.
+    defaultSuggestedActions:
+    - Tune stop conditions
+    - Tighten approval or tool allow-list
+    relatedEventTypes:
+    - AUTONOMY_DRIFT
+    - TOOL_MISUSE_RISK
+    - POLICY_THRESHOLD_EXCEEDED
+  - controlCode: GOV-ACC-006
+    title: High-risk tools must be explicitly mapped to allowed authority
+    category: ACCESS_CONTROL
+    impactLevel: HIGH
+    description: Any side-effecting or boundary-crossing tool must be covered by policy
+      and mapped to explicit authority conditions.
+    evidenceRequirements:
+    - tool classification
+    - authority policy reference
+    - allow/deny decision
+    - environment
+    reviewRequirements:
+    - Flag when a side-effect tool is encountered without policy mapping.
+    defaultSuggestedActions:
+    - Create unmapped-risk review
+    - Add explicit policy coverage before reuse
+    relatedEventTypes:
+    - UNMAPPED_HIGH_RISK_BEHAVIOR
+    - TOOL_MISUSE_RISK
+  - controlCode: GOV-MDL-007
+    title: Prompt and model versions must be recorded for material runs
+    category: MODEL_CHANGE
+    impactLevel: MODERATE
+    description: Material runs must identify the prompt and model version used so
+      investigators can reproduce, compare, and review change impact.
+    evidenceRequirements:
+    - promptVersionId
+    - model provider
+    - model name
+    - change ticket or release tag if available
+    reviewRequirements:
+    - Review when missing version fields coincide with material event or external
+      action.
+    defaultSuggestedActions:
+    - Require version metadata in pipeline
+    - Block production runs missing version lineage
+    relatedEventTypes:
+    - CHAIN_OF_CUSTODY_GAP
+    - PROVENANCE_FAILURE
+  - controlCode: GOV-INC-008
+    title: Confirmed material-risk events must produce incident-ready investigation
+      records
+    category: INCIDENT_RESPONSE
+    impactLevel: HIGH
+    description: Confirmed material-risk events should be exportable as investigation-ready
+      packets with timeline, rationale, evidence manifest, and retention state.
+    evidenceRequirements:
+    - event timeline
+    - control mappings
+    - review decision
+    - artifact manifest
+    - export hash list
+    reviewRequirements:
+    - Incident or escalated review requires closure rationale and remediation notes.
+    defaultSuggestedActions:
+    - Generate incident packet
+    - Track remediation owner
+    relatedEventTypes:
+    - INCIDENT_CANDIDATE
+    - APPROVAL_BYPASS
+    - SENSITIVE_DATA_EXPOSURE
+- id: pack_nist_practical_reference_v1
+  name: NIST-style AI RMF Practical Mapping
+  slug: nist-style-ai-rmf-practical
+  version: 1.0.0
+  sourceType: SYSTEM
+  isActive: true
+  description: Reference-oriented mapping pack that groups events under Govern, Map,
+    Measure, and Manage themes. Intended for practical alignment only, not certification
+    claims.
+  categories:
+  - code: GOVERN
+    label: Govern
+  - code: MAP
+    label: Map
+  - code: MEASURE
+    label: Measure
+  - code: MANAGE
+    label: Manage
+  retentionPolicies: []
+  controls:
+  - controlCode: NIST-GOV-01
+    title: Runtime oversight responsibilities must be assigned and reviewable
+    category: HUMAN_OVERSIGHT
+    impactLevel: HIGH
+    description: Material AI actions should have clear review responsibility, disposition,
+      and retained oversight evidence.
+    evidenceRequirements:
+    - assigned reviewer
+    - case status
+    - oversight record
+    reviewRequirements:
+    - Escalate when ownership is missing or overdue.
+    defaultSuggestedActions:
+    - Assign reviewer
+    - Track SLA
+    relatedEventTypes:
+    - APPROVAL_BYPASS
+    - INCIDENT_CANDIDATE
+  - controlCode: NIST-MAP-01
+    title: System context, intended use, and boundary conditions should be inferable
+      from telemetry
+    category: PROVENANCE
+    impactLevel: MODERATE
+    description: The telemetry model should preserve enough context to determine what
+      the agent was doing and under what assumptions.
+    evidenceRequirements:
+    - agent system metadata
+    - environment
+    - channel
+    - action target
+    reviewRequirements:
+    - Review when context is missing for high-impact run.
+    defaultSuggestedActions:
+    - Require structured run metadata
+    relatedEventTypes:
+    - CHAIN_OF_CUSTODY_GAP
+    - PROVENANCE_FAILURE
+  - controlCode: NIST-MEASURE-01
+    title: Material runtime failures must be measurable using repeatable criteria
+    category: LOGGING
+    impactLevel: MODERATE
+    description: The console should use deterministic, explainable scoring and rule
+      thresholds for material events.
+    evidenceRequirements:
+    - rule ID
+    - score inputs
+    - confidence score
+    - rationale
+    reviewRequirements:
+    - Flag rules with repeated false positives for tuning.
+    defaultSuggestedActions:
+    - Tune thresholds
+    - Document rationale
+    relatedEventTypes:
+    - POLICY_THRESHOLD_EXCEEDED
+    - UNMAPPED_HIGH_RISK_BEHAVIOR
+  - controlCode: NIST-MANAGE-01
+    title: Material AI risks must trigger review, remediation, or other management
+      action
+    category: INCIDENT_RESPONSE
+    impactLevel: HIGH
+    description: Risk detection is incomplete unless it results in review, remediation,
+      or justified closure.
+    evidenceRequirements:
+    - review decision
+    - remediation note
+    - retention disposition
+    reviewRequirements:
+    - Closure requires rationale.
+    defaultSuggestedActions:
+    - Create case
+    - Track remediation
+    relatedEventTypes:
+    - APPROVAL_BYPASS
+    - AUTONOMY_DRIFT
+    - SENSITIVE_DATA_EXPOSURE
+    - PROVENANCE_FAILURE
+- id: pack_owasp_agent_llm_reference_v1
+  name: OWASP-inspired Agent / LLM Practical Mapping
+  slug: owasp-inspired-agent-llm-practical
+  version: 1.0.0
+  sourceType: SYSTEM
+  isActive: true
+  description: Reference-oriented pack grouping events into practical agent/LLM risk
+    families such as tool misuse, excessive agency, data leakage, insecure output
+    handling, and oversight breakdown.
+  categories:
+  - code: PROMPT_GOAL_HIJACK
+    label: Prompt / Goal Hijack
+  - code: TOOL_MISUSE
+    label: Tool Misuse
+  - code: EXCESSIVE_AGENCY
+    label: Excessive Agency
+  - code: DATA_LEAKAGE
+    label: Data Leakage
+  - code: INSECURE_OUTPUT
+    label: Insecure Output Handling
+  - code: RETRIEVAL_MANIPULATION
+    label: Retrieval / Knowledge Manipulation
+  - code: SUPPLY_CHAIN
+    label: Supply Chain / Plugin Risk
+  - code: OVERSIGHT_BREAKDOWN
+    label: Monitoring / Oversight Breakdown
+  retentionPolicies: []
+  controls:
+  - controlCode: OWASP-AGENT-TOOL-01
+    title: Boundary-crossing tools should be bounded, monitored, and reviewable
+    category: SAFE_TOOL_USE
+    impactLevel: HIGH
+    description: Agent use of external communication, deletion, shell, or other side-effect
+      tools should generate reviewable traces and authority evidence.
+    evidenceRequirements:
+    - tool name
+    - tool args
+    - approval state
+    - target boundary
+    reviewRequirements:
+    - High-risk external action with missing approval is incident candidate.
+    defaultSuggestedActions:
+    - Require approval
+    - Restrict tool allow-list
+    relatedEventTypes:
+    - APPROVAL_BYPASS
+    - TOOL_MISUSE_RISK
+    - UNMAPPED_HIGH_RISK_BEHAVIOR
+  - controlCode: OWASP-AGENT-AUT-02
+    title: Agent autonomy drift should be detectable from retries, chaining, and side
+      effects
+    category: SAFE_TOOL_USE
+    impactLevel: MODERATE
+    description: Excessive chain depth or multi-tool escalation can indicate excessive
+      agency or loss of policy control.
+    evidenceRequirements:
+    - retry count
+    - tool depth
+    - distinct side-effect tools
+    reviewRequirements:
+    - Cluster related tool events into one reviewable case.
+    defaultSuggestedActions:
+    - Add guardrails
+    - Add stop conditions
+    relatedEventTypes:
+    - AUTONOMY_DRIFT
+    - POLICY_THRESHOLD_EXCEEDED
+  - controlCode: OWASP-AGENT-DATA-03
+    title: Outbound content should be screened for sensitive data and unsafe disclosure
+    category: DATA_HANDLING
+    impactLevel: HIGH
+    description: Agent-generated external messages and tool payloads should be screened
+      for sensitive content before they cross a trust boundary.
+    evidenceRequirements:
+    - sensitive matches
+    - boundary flag
+    - redacted derivative
+    reviewRequirements:
+    - Critical data classes require incident-ready retention.
+    defaultSuggestedActions:
+    - Redact
+    - Restrict
+    - Escalate
+    relatedEventTypes:
+    - SENSITIVE_DATA_EXPOSURE
+  - controlCode: OWASP-AGENT-OBS-04
+    title: Lack of approval or evidence lineage is itself a material oversight failure
+    category: LOGGING
+    impactLevel: HIGH
+    description: If the system cannot prove who approved an action or how an output
+      was supported, the observability/control layer has failed in a materially relevant
+      way.
+    evidenceRequirements:
+    - approval trace
+    - span lineage
+    - version fields
+    - rationale
+    reviewRequirements:
+    - Review on missing approval or evidence gaps.
+    defaultSuggestedActions:
+    - Open review
+    - Treat repeated gaps as control weakness
+    relatedEventTypes:
+    - APPROVAL_BYPASS
+    - PROVENANCE_FAILURE
+    - CHAIN_OF_CUSTODY_GAP

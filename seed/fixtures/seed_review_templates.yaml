@@ -1,0 +1,48 @@
+- key: reviewer_material_finding_default
+  title: Material Finding Review
+  policy_question: Does this event require remediation, accepted risk, or incident escalation?
+  required_inputs:
+    - business_impact_summary
+    - control_impact_summary
+    - retained_evidence_review
+  allowed_outcomes:
+    - accepted_risk
+    - remediation_required
+    - escalate_to_incident
+    - request_more_evidence
+  default_due_days: 3
+- key: reviewer_privacy_retention_decision
+  title: Privacy and Retention Review
+  policy_question: Should evidence be retained, redacted, deleted, or held for investigation?
+  required_inputs:
+    - data_sensitivity_summary
+    - retention_basis
+    - legal_hold_eligibility
+  allowed_outcomes:
+    - request_more_evidence
+    - remediation_required
+    - accepted_risk
+  default_due_days: 2
+- key: reviewer_approval_bypass_decision
+  title: Approval Bypass Review
+  policy_question: Was the missing checkpoint a control failure requiring incident treatment?
+  required_inputs:
+    - approval_path_reconstruction
+    - source_run_summary
+    - evidence_snapshot_review
+  allowed_outcomes:
+    - escalate_to_incident
+    - remediation_required
+    - accepted_risk
+  default_due_days: 1
+- key: reviewer_recertification_after_change
+  title: Recertification After Material Change
+  policy_question: Which controls must be re-reviewed after the change event?
+  required_inputs:
+    - changed_entity_summary
+    - impacted_controls
+    - current_evidence_snapshot
+  allowed_outcomes:
+    - remediation_required
+    - request_more_evidence
+  default_due_days: 5

@@ -1,0 +1,20 @@
+{
+  "name": "@aiacp/rules-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test src/rules-engine.test.ts"
+  },
+  "dependencies": {
+    "@aiacp/connectors-openclaw": "workspace:*",
+    "@aiacp/policy-packs": "workspace:*",
+    "@prisma/client": "^6.5.0",
+    "yaml": "^2.7.0"
+  }
+}

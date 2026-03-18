@@ -1,0 +1,438 @@
+schemaVersion: 1
+generatedAt: '2026-03-14T00:00:00Z'
+defaultRuleEngineConfig:
+  autoCaseOnMedium: false
+  clusterWindowMinutes: 5
+  defaultDedupeTemplate: hash(run.id + eventType + primaryTarget + timeBucket5m +
+    rootRuleFamily)
+rules:
+- id: approval-bypass-email
+  name: External email without required approval
+  enabled: true
+  eventType: APPROVAL_BYPASS
+  severityBase: HIGH
+  priority: 100
+  rootRuleFamily: approval-boundary
+  conditions:
+    all:
+    - field: span.spanType
+      op: eq
+      value: TOOL_CALL
+    - field: span.attributes.toolName
+      op: eq
+      value: send_email
+    - field: span.attributes.boundary
+      op: eq
+      value: EXTERNAL
+    - field: span.attributes.approvalRequired
+      op: eq
+      value: true
+    - field: span.attributes.approvalPresent
+      op: eq
+      value: false
+  scoreAdjustments:
+  - when:
+      field: span.attributes.recipientDomain
+      op: not_in
+      value:
+      - company.com
+      - subsidiary.company.com
+    add: 20
+  - when:
+      field: span.attributes.highImpactAction
+      op: eq
+      value: true
+    add: 10
+  titleTemplate: External email sent without required approval
+  summaryTemplate: Agent called send_email across an external boundary without an
+    approval record.
+  primaryTargetField: span.attributes.recipient
+  dedupeBy:
+  - run.id
+  - span.attributes.toolName
+  - span.attributes.recipientDomain
+  - timeBucket5m
+  controlMappings:
+  - GOV-APP-001
+  - GOV-OVR-002
+  - GOV-RET-004
+  - OWASP-AGENT-TOOL-01
+  retentionPolicy: retain-incident-365
+  caseType: INCIDENT
+- id: output-sensitive-data-external-share
+  name: Sensitive data in outbound content
+  enabled: true
+  eventType: SENSITIVE_DATA_EXPOSURE
+  severityBase: HIGH
+  priority: 95
+  rootRuleFamily: data-boundary
+  conditions:
+    all:
+    - field: span.spanType
+      op: in
+      value:
+      - LLM_OUTPUT
+      - TOOL_CALL
+    - field: span.attributes.boundary
+      op: eq
+      value: EXTERNAL
+    - field: span.attributes.sensitiveMatches
+      op: count_gte
+      value: 1
+  scoreAdjustments:
+  - when:
+      field: span.attributes.sensitiveClasses
+      op: overlap
+      value:
+      - SSN
+      - API_KEY
+      - CLIENT_MATTER
+      - PRIVILEGED_LABEL
+    add: 15
+  - when:
+      field: span.attributes.deliveryChannel
+      op: in
+      value:
+      - EMAIL
+      - SLACK
+      - WHATSAPP
+    add: 5
+  titleTemplate: Sensitive data crossed an external boundary
+  summaryTemplate: Outbound content contained one or more sensitive-data matches and
+    should be reviewed under data-handling policy.
+  primaryTargetField: span.attributes.target
+  dedupeBy:
+  - run.id
+  - span.attributes.boundary
+  - span.attributes.target
+  - timeBucket5m
+  controlMappings:
+  - GOV-DATA-002
+  - GOV-RET-004
+  - OWASP-AGENT-DATA-03
+  retentionPolicy: retain-review-90
+  caseType: RISK_REVIEW
+- id: suspicious-autonomy-loop
+  name: Excessive tool chaining with retries
+  enabled: true
+  eventType: AUTONOMY_DRIFT
+  severityBase: MEDIUM
+  priority: 80
+  rootRuleFamily: autonomy
+  aggregateWindowMinutes: 10
+  conditions:
+    all:
+    - field: run.metrics.toolChainDepth
+      op: gte
+      value: 4
+    - field: run.metrics.retryCount
+      op: gte
+      value: 3
+  scoreAdjustments:
+  - when:
+      field: run.metrics.distinctSideEffectTools
+      op: gte
+      value: 2
+    add: 20
+  - when:
+      field: run.metrics.crossBoundaryActionCount
+      op: gte
+      value: 1
+    add: 10
+  titleTemplate: 'Autonomy drift: tool chain exceeded policy threshold'
+  summaryTemplate: Run showed repeated retries and expanding side effects within a
+    short window.
+  primaryTargetField: run.externalRunId
+  dedupeBy:
+  - run.id
+  - rootRuleFamily
+  - timeBucket10m
+  controlMappings:
+  - GOV-TOOL-001
+  - GOV-OVR-002
+  - OWASP-AGENT-AUT-02
+  retentionPolicy: retain-review-90
+  caseType: RISK_REVIEW
+- id: provenance-high-impact-delete
+  name: High-impact delete with insufficient evidence
+  enabled: true
+  eventType: PROVENANCE_FAILURE
+  severityBase: HIGH
+  priority: 92
+  rootRuleFamily: provenance
+  conditions:
+    all:
+    - field: run.metrics.highImpactActionOccurred
+      op: eq
+      value: true
+    - field: run.metrics.highImpactActionType
+      op: eq
+      value: DELETE
+    - field: run.metrics.evidenceSufficiency
+      op: lt
+      value: 80
+  scoreAdjustments:
+  - when:
+      field: run.metrics.evidenceSufficiency
+      op: lt
+      value: 60
+    add: 15
+  - when:
+      field: run.metrics.retrievalSupportCount
+      op: lte
+      value: 0
+    add: 10
+  titleTemplate: High-impact delete lacked sufficient evidence support
+  summaryTemplate: The run performed or attempted a delete action while evidence sufficiency
+    fell below threshold.
+  primaryTargetField: run.metrics.highImpactTarget
+  dedupeBy:
+  - run.id
+  - run.metrics.highImpactTarget
+  - rootRuleFamily
+  controlMappings:
+  - GOV-EVD-003
+  - GOV-APP-001
+  - NIST-MAP-01
+  - OWASP-AGENT-OBS-04
+  retentionPolicy: retain-incident-365
+  caseType: RISK_REVIEW
+- id: external-calendar-invite-without-approval
+  name: External calendar invite without approval
+  enabled: true
+  eventType: HIGH_IMPACT_ACTION
+  severityBase: HIGH
+  priority: 88
+  rootRuleFamily: approval-boundary
+  conditions:
+    all:
+    - field: span.spanType
+      op: eq
+      value: TOOL_CALL
+    - field: span.attributes.toolName
+      op: eq
+      value: create_calendar_invite
+    - field: span.attributes.boundary
+      op: eq
+      value: EXTERNAL
+    - field: span.attributes.approvalRequired
+      op: eq
+      value: true
+    - field: span.attributes.approvalPresent
+      op: eq
+      value: false
+  scoreAdjustments:
+  - when:
+      field: span.attributes.inviteIncludesSensitiveTopic
+      op: eq
+      value: true
+    add: 10
+  titleTemplate: External calendar action occurred without approval
+  summaryTemplate: Agent created an external calendar invite without a recorded approval
+    state.
+  primaryTargetField: span.attributes.targetEmail
+  dedupeBy:
+  - run.id
+  - span.attributes.targetEmail
+  - rootRuleFamily
+  controlMappings:
+  - GOV-APP-001
+  - GOV-OVR-002
+  - OWASP-AGENT-TOOL-01
+  retentionPolicy: retain-incident-365
+  caseType: INCIDENT
+- id: chain-of-custody-gap
+  name: Chain-of-custody gap on material run
+  enabled: true
+  eventType: CHAIN_OF_CUSTODY_GAP
+  severityBase: MEDIUM
+  priority: 70
+  rootRuleFamily: trace-integrity
+  conditions:
+    any:
+    - field: run.promptVersionId
+      op: is_empty
+    - field: run.metrics.versionIntegrity
+      op: lt
+      value: 20
+    - field: run.metrics.chainCompleteness
+      op: lt
+      value: 15
+  scoreAdjustments:
+  - when:
+      field: run.metrics.highImpactActionOccurred
+      op: eq
+      value: true
+    add: 15
+  - when:
+      field: run.channel
+      op: in
+      value:
+      - EMAIL
+      - SLACK_EXTERNAL
+    add: 5
+  titleTemplate: Material run had a chain-of-custody or version-lineage gap
+  summaryTemplate: A required version or lineage field was missing, weakening later
+    audit defensibility.
+  primaryTargetField: run.externalRunId
+  dedupeBy:
+  - run.id
+  - rootRuleFamily
+  controlMappings:
+  - GOV-LOG-005
+  - GOV-MDL-007
+  - GOV-EVD-003
+  - OWASP-AGENT-OBS-04
+  retentionPolicy: retain-review-90
+  caseType: RISK_REVIEW
+- id: version-lineage-gap
+  name: Prompt or model version missing on external action
+  enabled: true
+  eventType: CHAIN_OF_CUSTODY_GAP
+  severityBase: HIGH
+  priority: 76
+  rootRuleFamily: trace-integrity
+  conditions:
+    all:
+    - field: run.metrics.crossBoundaryActionCount
+      op: gte
+      value: 1
+    - any:
+      - field: run.promptVersionId
+        op: is_empty
+      - field: run.modelName
+        op: is_empty
+  scoreAdjustments:
+  - when:
+      field: run.metrics.evidenceSufficiency
+      op: lt
+      value: 80
+    add: 10
+  titleTemplate: Cross-boundary action lacked prompt/model lineage
+  summaryTemplate: The run crossed a trust boundary but version lineage was incomplete.
+  primaryTargetField: run.externalRunId
+  dedupeBy:
+  - run.id
+  - rootRuleFamily
+  controlMappings:
+  - GOV-MDL-007
+  - GOV-EVD-003
+  - NIST-MAP-01
+  retentionPolicy: retain-review-90
+  caseType: RISK_REVIEW
+- id: unmapped-side-effect-tool
+  name: Unmapped high-risk tool use
+  enabled: true
+  eventType: UNMAPPED_HIGH_RISK_BEHAVIOR
+  severityBase: MEDIUM
+  priority: 78
+  rootRuleFamily: policy-coverage
+  conditions:
+    all:
+    - field: span.spanType
+      op: eq
+      value: TOOL_CALL
+    - field: span.attributes.toolRiskClass
+      op: in
+      value:
+      - HIGH
+      - CRITICAL
+    - field: span.attributes.policyMapped
+      op: eq
+      value: false
+  scoreAdjustments:
+  - when:
+      field: span.attributes.boundary
+      op: eq
+      value: EXTERNAL
+    add: 10
+  - when:
+      field: span.attributes.highImpactAction
+      op: eq
+      value: true
+    add: 10
+  titleTemplate: High-risk tool was used without policy mapping
+  summaryTemplate: The system encountered a side-effect tool that was not explicitly
+    mapped to authority and control rules.
+  primaryTargetField: span.attributes.toolName
+  dedupeBy:
+  - run.id
+  - span.attributes.toolName
+  - rootRuleFamily
+  controlMappings:
+  - GOV-ACC-006
+  - NIST-MEASURE-01
+  - OWASP-AGENT-TOOL-01
+  retentionPolicy: retain-review-90
+  caseType: RISK_REVIEW
+- id: missing-approval-check-on-external-send
+  name: External send occurred without approval-check span
+  enabled: true
+  eventType: POLICY_THRESHOLD_EXCEEDED
+  severityBase: MEDIUM
+  priority: 74
+  rootRuleFamily: oversight-execution
+  conditions:
+    all:
+    - field: run.metrics.crossBoundaryActionCount
+      op: gte
+      value: 1
+    - field: run.metrics.approvalCheckSpanCount
+      op: eq
+      value: 0
+  scoreAdjustments:
+  - when:
+      field: run.metrics.highImpactActionOccurred
+      op: eq
+      value: true
+    add: 10
+  titleTemplate: Cross-boundary action occurred without explicit approval-check event
+  summaryTemplate: The run shows a side-effect action but no approval-check span,
+    creating an oversight gap.
+  primaryTargetField: run.externalRunId
+  dedupeBy:
+  - run.id
+  - rootRuleFamily
+  controlMappings:
+  - GOV-OVR-002
+  - GOV-LOG-005
+  - NIST-GOV-01
+  retentionPolicy: retain-review-90
+  caseType: RISK_REVIEW
+- id: retention-required-privileged-artifact
+  name: Privileged raw artifact requires restricted retention handling
+  enabled: true
+  eventType: RETENTION_REQUIRED
+  severityBase: MEDIUM
+  priority: 65
+  rootRuleFamily: retention
+  conditions:
+    all:
+    - field: span.attributes.sensitiveClasses
+      op: overlap
+      value:
+      - PRIVILEGED_LABEL
+      - CLIENT_MATTER
+      - API_KEY
+    - field: span.attributes.rawArtifactCaptured
+      op: eq
+      value: true
+  scoreAdjustments:
+  - when:
+      field: span.attributes.boundary
+      op: eq
+      value: EXTERNAL
+    add: 10
+  titleTemplate: Captured raw artifact requires restricted retention treatment
+  summaryTemplate: The run captured raw content that should not remain in standard
+    evidence views without redaction or hold logic.
+  primaryTargetField: run.externalRunId
+  dedupeBy:
+  - run.id
+  - rootRuleFamily
+  controlMappings:
+  - GOV-DATA-002
+  - GOV-RET-004
+  - GOV-LOG-005
+  retentionPolicy: retain-minimal-redacted
+  caseType: RETENTION_REVIEW

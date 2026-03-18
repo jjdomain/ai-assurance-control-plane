@@ -1,0 +1,114 @@
+- key: contract_review_agent
+  slug: contract-review-agent
+  name: Contract Review Agent
+  owner_team: Legal Operations
+  business_owner: legal-ops-director
+  technical_owner: ai-platform-team
+  intended_purpose: Reviews inbound vendor contract text and flags high-risk clauses.
+  deployment_context: Internal enterprise workflow
+  environment: production
+  risk_tier: elevated
+  classification_profile: legal_assist_internal
+  linked_policy_packs:
+    - high_risk_use_case_review
+    - memory_privacy_retention
+    - human_approval_escalation
+    - auditability_assurance_recordkeeping
+  required_review_path: enhanced_review
+  recertification_interval_days: 90
+  notes:
+    - Handles potentially sensitive legal data
+    - Escalates to a human reviewer for high-impact outputs
+- key: customer_support_agent_with_memory
+  slug: customer-support-agent-memory
+  name: Customer Support Agent with Memory
+  owner_team: Customer Experience
+  business_owner: support-ops-director
+  technical_owner: ai-platform-team
+  intended_purpose: Assists with support workflows while carrying forward selective memory context.
+  deployment_context: Customer-facing support workflow
+  environment: production
+  risk_tier: elevated
+  classification_profile: support_memory_assist
+  linked_policy_packs:
+    - memory_privacy_retention
+    - auditability_assurance_recordkeeping
+  required_review_path: enhanced_review
+  recertification_interval_days: 90
+  notes:
+    - Privacy and retention handling are material
+    - Reviewer decisions may require legal hold
+- key: research_agent_with_external_tools
+  slug: research-agent-external-tools
+  name: Research Agent with External Tool Use
+  owner_team: Strategy and Research
+  business_owner: research-ops-manager
+  technical_owner: ai-platform-team
+  intended_purpose: Performs research tasks with browsing and external retrieval/tool access.
+  deployment_context: Internal knowledge workflow
+  environment: staging
+  risk_tier: elevated
+  classification_profile: research_external_tools
+  linked_policy_packs:
+    - agent_runtime_safety_baseline
+    - delegation_connector_boundaries
+    - auditability_assurance_recordkeeping
+  required_review_path: standard_review
+  recertification_interval_days: 90
+  notes:
+    - Prompt-injection and external-action lineage are key risks
+- key: outbound_action_agent
+  slug: outbound-action-agent
+  name: Outbound Action Agent
+  owner_team: Revenue Operations
+  business_owner: revops-director
+  technical_owner: ai-platform-team
+  intended_purpose: Sends notifications and writes to external systems on behalf of users.
+  deployment_context: External action workflow
+  environment: production
+  risk_tier: high
+  classification_profile: outbound_external_actions
+  linked_policy_packs:
+    - human_approval_escalation
+    - high_risk_use_case_review
+    - incident_response_remediation
+  required_review_path: strict_review
+  recertification_interval_days: 60
+  notes:
+    - Approval-gated external actions are mandatory
+- key: multi_agent_orchestrator
+  slug: multi-agent-orchestrator
+  name: Multi-Agent Orchestrator
+  owner_team: AI Platform
+  business_owner: ai-platform-director
+  technical_owner: orchestration-team
+  intended_purpose: Delegates tasks across specialized agents and connectors.
+  deployment_context: Internal orchestration workflow
+  environment: production
+  risk_tier: elevated
+  classification_profile: delegation_orchestration
+  linked_policy_packs:
+    - delegation_connector_boundaries
+    - auditability_assurance_recordkeeping
+    - agent_runtime_safety_baseline
+  required_review_path: enhanced_review
+  recertification_interval_days: 90
+  notes:
+    - Delegation boundaries and lineage must remain explicit
+- key: internal_coding_ops_assistant
+  slug: internal-coding-ops-assistant
+  name: Internal Coding and Ops Assistant
+  owner_team: Developer Productivity
+  business_owner: eng-productivity-manager
+  technical_owner: platform-engineering
+  intended_purpose: Supports engineering teams with internal coding and operations tasks.
+  deployment_context: Internal productivity workflow
+  environment: production
+  risk_tier: low
+  classification_profile: internal_ops_assist
+  linked_policy_packs:
+    - auditability_assurance_recordkeeping
+  required_review_path: standard_review
+  recertification_interval_days: 180
+  notes:
+    - Lower risk baseline, but tool permission drift still matters
