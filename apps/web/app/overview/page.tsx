@@ -10,7 +10,7 @@ export default async function OverviewPage() {
     <main className="console-page">
       <section className="panel">
         <p className="eyebrow">Assurance operations system of record</p>
-        <h1>Overview</h1>
+        <h1>Dashboard</h1>
         <p className="lede">
           Readiness-first posture across review workload, material findings, evidence freshness, incidents, recertification, and audit packet blockers.
         </p>

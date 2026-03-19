@@ -53,10 +53,11 @@ docs/
 
 1. `copy .env.example .env`
 2. `pnpm install`
-3. `pnpm prisma:migrate`
-4. `pnpm seed`
-5. `pnpm dev:api`
-6. `pnpm dev:web`
+3. Set `DATABASE_URL` in `.env` to a dedicated Postgres database, such as a separate Supabase project for this demo
+4. `pnpm prisma:migrate`
+5. `pnpm seed`
+6. `pnpm dev:api`
+7. `pnpm dev:web`
 
 ## Scripts
 
@@ -75,3 +76,4 @@ docs/
 - The app is intentionally positioned above tracing, eval, and runtime security tooling.
 - OpenClaw is the first connector profile, but the schema and UI normalize data into shared assurance records.
 - The seed layer includes runtime-first scenarios plus governance-oriented fixture context for systems, risk tiers, review templates, incident playbooks, and audit packet presets.
+- For deployment, prefer a dedicated Postgres database for this project rather than sharing the same database used by the main `johnkwan.me` site.

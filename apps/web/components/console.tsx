@@ -64,6 +64,23 @@ export function SectionHeader({
   );
 }
 
+export function FlashBanner({
+  message,
+  tone = "good"
+}: {
+  message: string;
+  tone?: "good" | "warning" | "neutral";
+}) {
+  const toneClass =
+    tone === "warning"
+      ? "flash-banner warning"
+      : tone === "neutral"
+        ? "flash-banner neutral"
+        : "flash-banner";
+
+  return <div className={toneClass}>{message}</div>;
+}
+
 export function FilterLink({
   href,
   label,

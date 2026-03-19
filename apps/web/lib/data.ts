@@ -2,6 +2,8 @@ import "server-only";
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import yaml from "yaml";
+import { prisma } from "./prisma";
 
 type DemoDataShape = {
   dashboard: any;
@@ -14,7 +16,26 @@ type DemoDataShape = {
   evidence: any[];
 };
 
+type RuleDocumentShape = {
+  schemaVersion: number;
+  generatedAt: string;
+  defaultRuleEngineConfig?: Record<string, unknown>;
+  rules?: Array<Record<string, any>>;
+};
+
+type PolicyDocumentShape = {
+  schemaVersion: number;
+  generatedAt: string;
+  packs?: Array<Record<string, any>>;
+};
+
 let demoDataCache: DemoDataShape | null = null;
+let ruleDocumentCache: RuleDocumentShape | null = null;
+let policyDocumentCache: PolicyDocumentShape | null = null;
+
+function getWorkspaceRoot() {
+  return path.resolve(process.cwd(), "..", "..");
+}
 
 function reviveDates<T>(value: T): T {
   if (Array.isArray(value)) {
@@ -45,8 +66,42 @@ async function getDemoData() {
   return demoDataCache;
 }
 
+async function getRuleDocument() {
+  if (ruleDocumentCache) {
+    return ruleDocumentCache;
+  }
+
+  const filePath = path.join(getWorkspaceRoot(), "sample_rules.yaml");
+  const raw = await fs.readFile(filePath, "utf8");
+  ruleDocumentCache = yaml.parse(raw) as RuleDocumentShape;
+  return ruleDocumentCache;
+}
+
+async function getPolicyDocument() {
+  if (policyDocumentCache) {
+    return policyDocumentCache;
+  }
+
+  const filePath = path.join(getWorkspaceRoot(), "sample_policy_packs.yaml");
+  const raw = await fs.readFile(filePath, "utf8");
+  policyDocumentCache = yaml.parse(raw) as PolicyDocumentShape;
+  return policyDocumentCache;
+}
+
 function selectById<T extends { id: string }>(items: T[], selectedId?: string) {
   return items.find((item) => item.id === selectedId) ?? items[0] ?? null;
+}
+
+function asRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, any>) : {};
+}
+
+async function getAdminWorkspace() {
+  return prisma.workspace.findFirst({
+    include: {
+      organization: true
+    }
+  });
 }
 
 async function getNormalizedData() {
@@ -152,6 +207,10 @@ async function getNormalizedData() {
     recertifications,
     runs
   };
+}
+
+function uniqueValues(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.filter(Boolean))) as string[];
 }
 
 export async function getOverviewPageData() {
@@ -322,10 +381,57 @@ export async function getRecertificationsPageData(selectedTaskId?: string) {
 }
 
 export async function getPolicyPacksPageData(selectedPackId?: string) {
-  const { policyPacks } = await getLandingPageData();
+  const workspace = await getAdminWorkspace();
+  if (!workspace) {
+    return { packs: [], selectedPack: null };
+  }
+
+  const packs = await prisma.policyPack.findMany({
+    where: { organizationId: workspace.organizationId },
+    include: {
+      controls: {
+        orderBy: { code: "asc" }
+      },
+      retentionPolicies: {
+        orderBy: { name: "asc" }
+      }
+    },
+    orderBy: [{ slug: "asc" }, { version: "desc" }]
+  });
+
+  const packsWithConfig = packs.map((pack) => {
+    const rawJson = asRecord(pack.rawJson);
+    return {
+      id: pack.id,
+      slug: pack.slug,
+      name: pack.name,
+      version: pack.version,
+      sourceType: pack.sourceType,
+      isActive: pack.isActive,
+      description: rawJson.description ?? "Policy and control context for assurance workflows.",
+      categories: rawJson.categories ?? [],
+      retentionPolicies: pack.retentionPolicies,
+      controls: pack.controls.map((control) => ({
+        id: control.id,
+        code: control.code,
+        title: control.title,
+        category: control.categoryCode,
+        impactLevel: control.impactLevel,
+        relatedEventTypes: asRecord(control.metadataJson).relatedEventTypes ?? [],
+        evidenceRequirements: asRecord(control.metadataJson).evidenceRequirements ?? [],
+        reviewRequirements: asRecord(control.metadataJson).reviewRequirements ?? [],
+        controlHealth: control.controlHealth,
+        description: control.description,
+        reviewCadence: control.reviewCadence,
+        evidenceFreshnessRequirement: control.evidenceFreshnessRequirement,
+        requiresHumanApproval: control.requiresHumanApproval,
+        requiredEvidenceTypesJson: control.requiredEvidenceTypesJson
+      }))
+    };
+  });
   return {
-    packs: policyPacks,
-    selectedPack: selectById(policyPacks, selectedPackId)
+    packs: packsWithConfig,
+    selectedPack: selectById(packsWithConfig, selectedPackId)
   };
 }
 
@@ -350,22 +456,236 @@ export async function getDemoScenariosPageData() {
 }
 
 export async function getSettingsPageData() {
+  const workspace = await getAdminWorkspace();
   return {
-    workspaces: [
+    workspaces: workspace ? [workspace] : []
+  };
+}
+
+export async function getRulesPageData(selectedRuleId?: string) {
+  const workspace = await getAdminWorkspace();
+  if (!workspace) {
+    return { rules: [], selectedRule: null, config: {}, testingRuns: [] };
+  }
+
+  const [ruleDefinitions, controls, runs] = await Promise.all([
+    prisma.ruleDefinition.findMany({
+      where: { organizationId: workspace.organizationId },
+      orderBy: [{ slug: "asc" }, { version: "desc" }]
+    }),
+    prisma.policyControl.findMany({
+      where: {
+        policyPack: { organizationId: workspace.organizationId }
+      },
+      include: { policyPack: true }
+    }),
+    prisma.run.findMany({
+      where: { workspaceId: workspace.id },
+      orderBy: { startedAt: "desc" },
+      take: 12
+    })
+  ]);
+
+  const controlsByCode = new Map(
+    controls.map((control) => [
+      control.code,
       {
-        id: "seed-workspace",
-        name: "OpenClaw Oversight Demo",
-        environment: "PROD",
-        organization: { name: "Demo Org" },
-        metadataJson: {
-          profile: "OPENCLAW_V1",
-          governanceContext: {
-            reviewTemplates: ["reviewer_material_finding_default", "reviewer_privacy_retention_decision"],
-            incidentPlaybooks: ["unsafe_external_action_playbook", "approval_checkpoint_failure_playbook"],
-            auditPacketPresets: ["internal_assurance_review", "post_incident_internal_review"]
-          }
-        }
+        code: control.code,
+        title: control.title,
+        category: control.categoryCode,
+        packName: control.policyPack.name
       }
-    ]
+    ])
+  );
+
+  const rules: any[] = await Promise.all(
+    ruleDefinitions.map(async (ruleDefinition) => {
+      const rawJson = asRecord(ruleDefinition.rawJson);
+      return {
+        id: ruleDefinition.id,
+        slug: ruleDefinition.slug,
+        name: ruleDefinition.name,
+        version: ruleDefinition.version,
+        isActive: ruleDefinition.isActive,
+        sourceType: ruleDefinition.sourceType,
+        matchedFindingsCount: await prisma.findingRuleMatch.count({
+          where: { ruleDefinitionId: ruleDefinition.id }
+        }),
+        triggeredRunsCount: 0,
+        linkedControls: (rawJson.controlMappings ?? []).map((code: string) => controlsByCode.get(code) ?? {
+          code,
+          title: "Reference-only control",
+          category: "REFERENCE",
+          packName: "Reference pack"
+        }),
+        ...rawJson
+      };
+    })
+  );
+
+  return {
+    rules,
+    selectedRule: selectById(rules, selectedRuleId),
+    config: asRecord(workspace.metadataJson).governanceContext?.ruleEngineConfig ?? {},
+    testingRuns: runs
+  };
+}
+
+export async function getControlMappingsPageData(selectedMappingId?: string) {
+  const workspace = await getAdminWorkspace();
+  if (!workspace) {
+    return { mappings: [], selectedMapping: null, availableControls: [], availableRetentionPolicies: [] };
+  }
+
+  const [ruleDefinitions, policyControls, retentionPolicies] = await Promise.all([
+    prisma.ruleDefinition.findMany({
+      where: { organizationId: workspace.organizationId },
+      orderBy: [{ slug: "asc" }, { version: "desc" }]
+    }),
+    prisma.policyControl.findMany({
+      where: {
+        policyPack: { organizationId: workspace.organizationId }
+      },
+      include: { policyPack: true }
+    }),
+    prisma.retentionPolicy.findMany({
+      where: { organizationId: workspace.organizationId },
+      orderBy: { name: "asc" }
+    })
+  ]);
+
+  const controlsByCode = new Map(
+    policyControls.map((control) => [
+      control.code,
+      {
+        controlCode: control.code,
+        title: control.title,
+        packName: control.policyPack.name,
+        impactLevel: control.impactLevel,
+        evidenceRequirements: asRecord(control.metadataJson).evidenceRequirements ?? [],
+        reviewRequirements: asRecord(control.metadataJson).reviewRequirements ?? [],
+        relatedEventTypes: asRecord(control.metadataJson).relatedEventTypes ?? []
+      }
+    ])
+  );
+
+  const mappingGroups = await Promise.all(
+    ruleDefinitions.map(async (ruleDefinition) => {
+      const rawJson = asRecord(ruleDefinition.rawJson);
+      const controlMappings = Array.isArray(rawJson.controlMappings) ? rawJson.controlMappings : [];
+
+      return Promise.all(
+        controlMappings.map(async (controlCode: string) => ({
+          id: `${ruleDefinition.id}__${controlCode}`,
+          ruleDefinitionId: ruleDefinition.id,
+          ruleId: ruleDefinition.slug,
+          ruleName: ruleDefinition.name,
+          eventType: rawJson.eventType,
+          severityBase: rawJson.severityBase,
+          caseType: rawJson.caseType ?? "RUNTIME_REVIEW",
+          retentionPolicy: rawJson.retentionPolicy
+            ? retentionPolicies.find((policy) => policy.name === rawJson.retentionPolicy) ?? { name: rawJson.retentionPolicy }
+            : null,
+          control:
+            controlsByCode.get(controlCode) ?? {
+              controlCode,
+              title: "Reference-only control",
+              packName: "Reference pack",
+              impactLevel: "UNKNOWN",
+              evidenceRequirements: [],
+              reviewRequirements: [],
+              relatedEventTypes: []
+            },
+          matchedFindingsCount: await prisma.finding.count({
+            where: {
+              ruleMatches: { some: { ruleDefinitionId: ruleDefinition.id } },
+              controlMappings: { some: { policyControl: { code: controlCode } } }
+            }
+          }),
+          incidentsCount: await prisma.incident.count({
+            where: {
+              finding: {
+                ruleMatches: { some: { ruleDefinitionId: ruleDefinition.id } },
+                controlMappings: { some: { policyControl: { code: controlCode } } }
+              }
+            }
+          }),
+          packetsCount: await prisma.auditPacket.count({
+            where: {
+              incident: {
+                finding: {
+                  ruleMatches: { some: { ruleDefinitionId: ruleDefinition.id } },
+                  controlMappings: { some: { policyControl: { code: controlCode } } }
+                }
+              }
+            }
+          })
+        }))
+      );
+    })
+  );
+
+  const mappings = mappingGroups.flat();
+
+  return {
+    mappings,
+    selectedMapping: selectById(mappings, selectedMappingId),
+    availableControls: policyControls.map((control) => ({
+      code: control.code,
+      label: `${control.code} - ${control.title}`
+    })),
+    availableRetentionPolicies: retentionPolicies.map((policy) => policy.name)
+  };
+}
+
+export async function getAdminPageData() {
+  const workspace = await getAdminWorkspace();
+  const [rulesData, policyData, mappingsData, overviewData] = await Promise.all([
+    getRulesPageData(),
+    getPolicyPacksPageData(),
+    getControlMappingsPageData(),
+    getOverviewPageData()
+  ]);
+
+  return {
+    stats: [
+      { label: "Active Rules", value: rulesData.rules.length, href: "/rules" },
+      { label: "Policy Packs", value: policyData.packs.length, href: "/policy-packs" },
+      { label: "Rule-Control Mappings", value: mappingsData.mappings.length, href: "/control-mappings" },
+      { label: "Material Findings", value: overviewData.kpis.find((item) => item.label === "Material Findings")?.value ?? 0, href: "/findings" },
+      { label: "Open Reviews", value: overviewData.kpis.find((item) => item.label === "Open Review Cases")?.value ?? 0, href: "/reviews" },
+      { label: "Audit Packets", value: overviewData.packets.length, href: "/audit-packets" },
+      { label: "Workspace", value: workspace?.name ?? "No workspace", href: "/settings" }
+    ],
+    flow: [
+      {
+        title: "1. Define Rules",
+        copy: "Author deterministic logic for material patterns, thresholds, case types, and downstream retention.",
+        href: "/rules"
+      },
+      {
+        title: "2. Attach Policy Context",
+        copy: "Bundle controls, categories, and retention schedules inside policy packs that explain why the logic matters.",
+        href: "/policy-packs"
+      },
+      {
+        title: "3. Map Logic to Controls",
+        copy: "Connect each rule to concrete controls and review consequences so matches become governed work objects.",
+        href: "/control-mappings"
+      },
+      {
+        title: "4. Operate the Workflow",
+        copy: "Matched activity becomes findings, evidence, reviews, incidents, recertifications, and retention decisions.",
+        href: "/findings"
+      },
+      {
+        title: "5. Export the Record",
+        copy: "Audit packets assemble the resulting evidence, approvals, incidents, and rationale into exportable output.",
+        href: "/audit-packets"
+      }
+    ],
+    highlightedRules: rulesData.rules.slice(0, 5),
+    highlightedPacks: policyData.packs.slice(0, 3),
+    highlightedMappings: mappingsData.mappings.slice(0, 6)
   };
 }

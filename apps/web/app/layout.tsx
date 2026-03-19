@@ -12,9 +12,18 @@ const navGroups = [
     ]
   },
   {
+    title: "Admin",
+    links: [
+      { href: "/admin", label: "Admin Console" },
+      { href: "/rules", label: "Rules" },
+      { href: "/policy-packs", label: "Policy Packs" },
+      { href: "/control-mappings", label: "Control Mappings" },
+      { href: "/settings", label: "Settings" }
+    ]
+  },
+  {
     title: "Triage",
     links: [
-      { href: "/overview", label: "Overview" },
       { href: "/findings", label: "Findings" },
       { href: "/evidence", label: "Evidence" },
       { href: "/reviews", label: "Reviews" }
@@ -24,7 +33,6 @@ const navGroups = [
     title: "Governance",
     links: [
       { href: "/controls", label: "Controls" },
-      { href: "/policy-packs", label: "Policy Packs" },
       { href: "/retention", label: "Retention & Legal Hold" },
       { href: "/recertifications", label: "Recertifications" }
     ]
@@ -33,8 +41,7 @@ const navGroups = [
     title: "Outcomes",
     links: [
       { href: "/incidents", label: "Incidents" },
-      { href: "/audit-packets", label: "Audit Packets" },
-      { href: "/settings", label: "Settings" }
+      { href: "/audit-packets", label: "Audit Packets" }
     ]
   }
 ] as const;
@@ -57,6 +64,11 @@ export default function RootLayout({
               <span>AI Assurance Control Plane</span>
             </Link>
             <nav className="nav-list">
+              <section className="nav-group">
+                <div className="nav-group-links">
+                  <Link href="/overview">Dashboard</Link>
+                </div>
+              </section>
               {navGroups.map((group) => (
                 <section key={group.title} className="nav-group">
                   <p className="nav-group-title">{group.title}</p>
